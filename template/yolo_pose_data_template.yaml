@@ -1,0 +1,14 @@
+path: /root/autodl-tmp/lpr/yolo_ccpd_pose_dataset
+train: images/train
+val: images/val
+test: images/test
+
+# Keypoints
+kpt_shape: [4, 2] # number of keypoints, number of dims (2 for x,y or 3 for x,y,visible)
+
+# Classes dictionary
+names:
+    0: license_plate
+
+flip_idx: []  # 空数组表示无对称性
+fliplr: 0.0   # 显式关闭水平翻转

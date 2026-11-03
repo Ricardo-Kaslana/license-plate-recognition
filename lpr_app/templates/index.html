@@ -1,0 +1,121 @@
+{% extends "base.html" %} {% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <!-- 在适当位置添加加载动画的HTML -->
+      <div id="loading" style="display: none;">
+          <div class="loading-spinner">
+              <!-- 这里可以是任何你喜欢的加载动画，比如Font Awesome图标 -->
+              <i class="fa fa-spinner fa-spin fa-3x"></i>
+              <p>文件处理中，请稍候...</p>
+          </div>
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-body p-5">
+          <h2 class="card-title text-center mb-4">车牌识别系统</h2>
+          <p class="card-text text-center text-muted mb-5">
+            请上传一张图片或一段视频，系统将自动检测其中的车牌。
+          </p>
+
+          <form
+            method="POST"
+            enctype="multipart/form-data"
+            novalidate
+            id="upload-form"
+          >
+            {{ form.hidden_tag() }}
+            <!-- CSRF token -->
+
+            <div class="mb-3">
+              {{ form.file.label(class="form-label") }} {{
+              form.file(class="form-control form-control-lg" + (" is-invalid" if
+              form.file.errors else "")) }} {% if form.file.errors %}
+              <div class="invalid-feedback">
+                {% for error in form.file.errors %}
+                <span>{{ error }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+              <div id="filename-error" class="invalid-feedback d-none">
+                文件名不能包含中文字符
+              </div>
+            </div>
+
+            <div class="d-grid mt-4">
+              {{ form.submit(class="btn btn-primary btn-lg", id="submit-button")
+              }}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("upload-form");
+  const fileInput = form.querySelector('input[type="file"]');
+  const submitButton = document.getElementById("submit-button");
+  const errorDiv = document.getElementById("filename-error");
+
+  function containsChinese(text) {
+    return /[\u4e00-\u9fa5]/.test(text);
+  }
+
+  form.addEventListener("submit", function (e) {
+    // 检查文件名
+    if (fileInput.files.length == 0){
+      fileInput.classList.add("is-invalid");
+      return;
+    }
+    if (fileInput.files.length > 0) {
+      const fileName = fileInput.files[0].name;
+      
+      if (containsChinese(fileName)) {
+        e.preventDefault();
+        errorDiv.classList.remove("d-none");
+        fileInput.classList.add("is-invalid");
+        submitButton.innerHTML = "提交";
+        submitButton.disabled = false;
+        return;
+      }
+    }
+
+    // 显示加载动画和按钮状态
+    e.preventDefault();
+    document.getElementById('loading').style.display = 'flex'; // 改为flex确保居中
+    submitButton.innerHTML = '处理中... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    submitButton.disabled = true;
+
+    // 发送AJAX请求
+    const formData = new FormData(this);
+    fetch('/', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      if (response.redirected) {
+        window.location.href = response.url;
+      } else {
+        return response.text().then(text => {
+          throw new Error(text);
+        });
+      }
+    })
+    .catch(error => {
+      document.getElementById('loading').style.display = 'none';
+      submitButton.innerHTML = "提交";
+      submitButton.disabled = false;
+      alert('处理过程中出错: ' + error.message);
+    });
+  });
+
+  // 当用户选择新文件时清除错误状态
+  fileInput.addEventListener("change", function () {
+    errorDiv.classList.add("d-none");
+    fileInput.classList.remove("is-invalid");
+  });
+});
+</script>
+{% endblock %}

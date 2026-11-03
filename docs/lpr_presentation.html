@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LPR — 车牌识别系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #020b15;
+    --bg-primary: #061524;
+    --bg-card: #0a1e33;
+    --bg-card-hover: #0e2842;
+    --blue-accent: #0ea5e9;
+    --blue-bright: #38bdf8;
+    --blue-glow: #0284c7;
+    --cyan: #22d3ee;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border: #1e3a5f;
+    --border-bright: #0ea5e9;
+    --red-accent: #ef4444;
+    --green-accent: #22c55e;
+    --amber: #f59e0b;
+    --purple: #a855f7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', 'JetBrains Mono', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Background effects */
+  .bg-grid {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(rgba(14,165,233,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14,165,233,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 40%, transparent 100%);
+  }
+  .bg-noise {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    opacity: 0.015;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+  }
+
+  /* Main container */
+  .slides-container {
+    position: relative; z-index: 1;
+    width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .slide {
+    position: absolute;
+    width: min(92vw, 1200px); height: min(90vh, 700px);
+    background: linear-gradient(165deg, var(--bg-primary) 0%, var(--bg-card) 50%, var(--bg-primary) 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 56px 64px;
+    opacity: 0; transform: translateY(30px) scale(0.97);
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    display: flex; flex-direction: column;
+    box-shadow: 0 0 80px rgba(14,165,233,0.05), 0 0 200px rgba(2,132,199,0.03);
+    overflow: hidden;
+  }
+  .slide::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--blue-accent), transparent);
+    opacity: 0.6;
+  }
+  .slide::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px;
+    background: linear-gradient(to top, rgba(14,165,233,0.03), transparent);
+    pointer-events: none;
+  }
+  .slide.active {
+    opacity: 1; transform: translateY(0) scale(1);
+    pointer-events: auto; z-index: 2;
+  }
+
+  /* Typography */
+  .slide-title {
+    font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+    font-size: 2rem; font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    position: relative; z-index: 1;
+  }
+  .slide-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--blue-bright);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 32px;
+    position: relative; z-index: 1;
+  }
+  .slide-content {
+    flex: 1; position: relative; z-index: 1;
+    font-size: 0.95rem; line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  /* Cover slide */
+  .slide-cover { display: flex; align-items: center; justify-content: center; text-align: center; }
+  .slide-cover .logo-icon {
+    font-size: 5rem; margin-bottom: 16px;
+    filter: drop-shadow(0 0 40px rgba(14,165,233,0.4));
+  }
+  .slide-cover .main-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3.2rem; font-weight: 900;
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--blue-bright) 50%, var(--cyan) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    letter-spacing: 0.06em;
+  }
+  .slide-cover .main-title-cn {
+    font-size: 1.6rem; font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+  .slide-cover .divider {
+    width: 120px; height: 2px;
+    background: linear-gradient(90deg, var(--blue-accent), var(--cyan));
+    margin: 0 auto 20px;
+  }
+  .slide-cover .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* Arch diagram */
+  .arch-flow {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+  }
+  .arch-node {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+    min-width: 85px;
+    transition: all 0.3s;
+  }
+  .arch-node:hover {
+    border-color: var(--blue-accent);
+    box-shadow: 0 0 20px rgba(14,165,233,0.15);
+    transform: translateY(-2px);
+  }
+  .arch-node .icon { font-size: 1.5rem; display: block; margin-bottom: 4px; }
+  .arch-node .label { color: var(--text-primary); font-weight: 500; font-family: 'Noto Sans SC', sans-serif; font-size: 0.78rem; }
+  .arch-arrow {
+    color: var(--blue-bright); font-size: 1rem; font-weight: 700;
+    opacity: 0.5;
+  }
+
+  /* Cards grid */
+  .card-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px; margin-top: 8px;
+  }
+  .info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    transition: all 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .info-card:hover {
+    border-color: var(--blue-accent);
+    box-shadow: 0 4px 20px rgba(14,165,233,0.08);
+    transform: translateY(-1px);
+  }
+  .info-card .card-icon { font-size: 1.4rem; margin-bottom: 8px; }
+  .info-card h3 {
+    font-size: 0.9rem; font-weight: 600; color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .info-card p {
+    font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;
+  }
+  .info-card .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    background: rgba(14,165,233,0.1);
+    color: var(--blue-bright);
+    padding: 2px 8px; border-radius: 4px;
+    margin: 2px 4px 2px 0;
+    border: 1px solid rgba(14,165,233,0.2);
+  }
+  .info-card.highlight {
+    border-color: var(--blue-accent);
+    background: linear-gradient(165deg, var(--bg-card) 0%, rgba(14,165,233,0.05) 100%);
+  }
+
+  /* Data flow visualization */
+  .ccpd-demo {
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    line-height: 1.8;
+    color: var(--text-muted);
+    word-break: break-all;
+    margin: 12px 0;
+  }
+  .ccpd-demo .part { color: var(--cyan); }
+  .ccpd-demo .part2 { color: var(--amber); }
+  .ccpd-demo .part3 { color: var(--green-accent); }
+  .ccpd-demo .label-row {
+    font-size: 0.6rem; color: var(--text-muted); margin-top: 6px;
+  }
+
+  /* Corner order comparison */
+  .corner-compare {
+    display: flex; gap: 24px; margin-top: 12px;
+  }
+  .corner-box {
+    flex: 1; background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+    text-align: center;
+  }
+
+  /* Nav */
+  .nav-bar {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    z-index: 10; display: flex; align-items: center; gap: 12px;
+  }
+  .nav-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.25s;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(10px);
+  }
+  .nav-btn:hover {
+    border-color: var(--blue-accent);
+    box-shadow: 0 0 16px rgba(14,165,233,0.2);
+    color: var(--blue-bright);
+  }
+  .nav-btn:active { transform: scale(0.92); }
+  .progress-dots { display: flex; gap: 8px; }
+  .progress-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+  }
+  .progress-dot.active {
+    background: var(--blue-accent);
+    box-shadow: 0 0 12px rgba(14,165,233,0.5);
+    width: 32px; border-radius: 20px;
+  }
+  .slide-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--text-muted);
+    letter-spacing: 0.1em; min-width: 50px; text-align: center;
+  }
+
+  /* Table */
+  .char-table {
+    width: 100%; border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; margin-top: 8px;
+  }
+  .char-table th, .char-table td {
+    padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .char-table th {
+    color: var(--blue-bright); font-weight: 500;
+    font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .char-table td { color: var(--text-secondary); }
+  .char-table .token-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 600;
+  }
+  .token-start { background: rgba(34,197,94,0.15); color: var(--green-accent); }
+  .token-end { background: rgba(239,68,68,0.15); color: var(--red-accent); }
+  .token-pad { background: rgba(100,116,139,0.15); color: var(--text-muted); }
+
+  /* Summary slide */
+  .highlight-list {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-top: 8px;
+  }
+  .highlight-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border-radius: 10px; border: 1px solid var(--border);
+  }
+  .highlight-item .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--blue-accent);
+    margin-top: 6px; flex-shrink: 0;
+    box-shadow: 0 0 8px var(--blue-glow);
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  @keyframes scanLine {
+    0% { top: -2px; }
+    100% { top: 100%; }
+  }
+  .slide.active .anim-1 { animation: fadeInUp 0.5s 0.1s both; }
+  .slide.active .anim-2 { animation: fadeInUp 0.5s 0.2s both; }
+  .slide.active .anim-3 { animation: fadeInUp 0.5s 0.3s both; }
+  .slide.active .anim-4 { animation: fadeInUp 0.5s 0.4s both; }
+  .slide.active .anim-5 { animation: fadeInUp 0.5s 0.5s both; }
+
+  /* Stage indicators */
+  .stage-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; font-weight: 600;
+    padding: 4px 12px; border-radius: 20px;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+  .stage-1 { background: rgba(14,165,233,0.12); color: var(--blue-bright); border: 1px solid rgba(14,165,233,0.25); }
+  .stage-2 { background: rgba(168,85,247,0.12); color: var(--purple); border: 1px solid rgba(168,85,247,0.25); }
+
+  /* Web app preview */
+  .web-features {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .web-feature {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border-radius: 8px; border: 1px solid var(--border);
+    font-size: 0.8rem;
+  }
+  .web-feature .dot { color: var(--green-accent); font-weight: 700; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .slide { padding: 32px 28px; }
+    .slide-cover .main-title { font-size: 2rem; }
+    .card-grid { grid-template-columns: 1fr; }
+    .corner-compare { flex-direction: column; }
+    .highlight-list { grid-template-columns: 1fr; }
+    .arch-flow { gap: 4px; }
+    .arch-node { min-width: 60px; padding: 10px 8px; font-size: 0.6rem; }
+    .arch-arrow { font-size: 0.7rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-noise"></div>
+
+<div class="slides-container">
+
+  <!-- Slide 1: Cover -->
+  <div class="slide slide-cover active" data-index="0">
+    <div>
+      <div class="logo-icon anim-1">🚘</div>
+      <div class="main-title anim-2">LPR System</div>
+      <div class="main-title-cn anim-3">深度学习车牌识别系统</div>
+      <div class="divider anim-4"></div>
+      <p class="meta anim-5">
+        YOLOv8-Pose &nbsp;+&nbsp; CNN-Transformer &nbsp;//&nbsp; Chinese License Plate Recognition
+      </p>
+    </div>
+  </div>
+
+  <!-- Slide 2: Overview -->
+  <div class="slide" data-index="1">
+    <div class="slide-title anim-1">项目概述</div>
+    <div class="slide-subtitle anim-1">Project Overview</div>
+    <div class="slide-content">
+      <p class="anim-2" style="margin-bottom:24px; color: var(--text-primary); font-size: 1.05rem;">
+        基于深度学习的<b>中国车牌</b>端到端识别系统，采用<b>两阶段流水线</b>架构。
+      </p>
+      <div class="card-grid anim-3">
+        <div class="info-card highlight">
+          <span class="stage-badge stage-1">Stage 1</span>
+          <h3>车牌检测与定位</h3>
+          <p>YOLOv8-Pose 检测车牌区域并输出<b>4个角点</b>关键点，实现精确定位与透视矫正。</p>
+          <div style="margin-top:8px">
+            <span class="tag">YOLOv8n-Pose</span>
+            <span class="tag">Corner Detection</span>
+            <span class="tag">CCPD2019</span>
+          </div>
+        </div>
+        <div class="info-card highlight">
+          <span class="stage-badge stage-2">Stage 2</span>
+          <h3>字符序列识别</h3>
+          <p>CNN 视觉编码器 + Transformer 解码器，自回归生成<b>车牌字符序列</b>。</p>
+          <div style="margin-top:8px">
+            <span class="tag">ResNet-like CNN</span>
+            <span class="tag">Transformer Decoder</span>
+            <span class="tag">Auto-Regressive</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-grid anim-4" style="margin-top:16px; grid-template-columns: 1fr 1fr 1fr;">
+        <div class="info-card">
+          <h3>🎯 字符集</h3>
+          <p>31 省份中文 + 26 字母 + 10 数字 + 特殊标记</p>
+        </div>
+        <div class="info-card">
+          <h3>📐 输入尺寸</h3>
+          <p>矫正后车牌图像统一为 48×160 像素</p>
+        </div>
+        <div class="info-card">
+          <h3>🌐 Web 应用</h3>
+          <p>Flask + Flask-Login + SQLite 完整部署方案</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Architecture Pipeline -->
+  <div class="slide" data-index="2">
+    <div class="slide-title anim-1">技术架构</div>
+    <div class="slide-subtitle anim-1">Architecture Pipeline</div>
+    <div class="slide-content anim-2">
+      <div class="arch-flow" style="margin-bottom:28px;">
+        <div class="arch-node">
+          <span class="icon">🖼️</span>
+          <span class="label">Input<br>输入图像</span>
+        </div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node">
+          <span class="icon">🔍</span>
+          <span class="label">YOLOv8<br>检测+角点</span>
+        </div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node">
+          <span class="icon">↗️</span>
+          <span class="label">Perspective<br>透视矫正</span>
+        </div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node">
+          <span class="icon">🧠</span>
+          <span class="label">CNN<br>特征提取</span>
+        </div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node">
+          <span class="icon">⚡</span>
+          <span class="label">Transformer<br>序列解码</span>
+        </div>
+        <span class="arch-arrow">→</span>
+        <div class="arch-node" style="border-color: var(--green-accent);">
+          <span class="icon">✅</span>
+          <span class="label">Output<br>京A12345</span>
+        </div>
+      </div>
+
+      <div class="card-grid anim-3" style="grid-template-columns: 1fr 1fr;">
+        <div class="info-card">
+          <h3 style="color: var(--blue-bright)">CNN 编码器细节</h3>
+          <p style="font-size:0.82rem;">
+            4 层 BasicBlock（ResNet 风格残差块）<br>
+            16× 空间下采样 (48×160 → 3×10)<br>
+            输出 512 维特征向量<br>
+            特征图展平为 <b>30 个序列 token</b>
+          </p>
+        </div>
+        <div class="info-card">
+          <h3 style="color: var(--purple)">Transformer 解码器细节</h3>
+          <p style="font-size:0.82rem;">
+            d_model = 512, nhead = 8<br>
+            6 层 Transformer Decoder<br>
+            正弦位置编码 (Positional Encoding)<br>
+            自回归生成，<b>&lt;/s&gt; 终止符</b>停止
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 4: Model Details -->
+  <div class="slide" data-index="3">
+    <div class="slide-title anim-1">模型细节</div>
+    <div class="slide-subtitle anim-1">Model Details</div>
+    <div class="slide-content">
+      <div class="card-grid anim-2">
+        <div class="info-card">
+          <span class="stage-badge stage-1">Detection</span>
+          <h3>YOLOv8-Pose 检测模型</h3>
+          <p style="font-size:0.82rem;">
+            <b>基座模型：</b>yolov8n-pose.pt<br>
+            <b>训练数据：</b>CCPD2019 车牌数据集<br>
+            <b>输出：</b>BBox + 4 个角点关键点<br>
+            <b>角点顺序：</b>TL → TR → BR → BL<br>
+            <b>训练参数：</b>100 epochs, batch=16, imgsz=640
+          </p>
+        </div>
+        <div class="info-card">
+          <span class="stage-badge stage-2">Recognition</span>
+          <h3>CNN-Transformer 识别模型</h3>
+          <p style="font-size:0.82rem;">
+            <b>输入：</b>矫正车牌 48×160<br>
+            <b>CNN：</b>4× BasicBlock, 16× 下采样<br>
+            <b>特征尺寸：</b>3×10 空间 → 30 tokens<br>
+            <b>Transformer：</b>6层 decoder, 8头注意力<br>
+            <b>输出：</b>自回归字符序列 ≤ 8 字符
+          </p>
+        </div>
+      </div>
+      <div class="card-grid anim-3" style="margin-top:16px;">
+        <div class="info-card">
+          <h3>字符集定义</h3>
+          <table class="char-table">
+            <tr><th>类别</th><th>内容</th><th>数量</th></tr>
+            <tr><td>省份中文</td><td>京 津 沪 渝 冀 豫 云 辽 黑 湘 皖 鲁 新 苏 浙 赣 鄂 桂 甘 晋 蒙 陕 吉 闽 贵 粤 青 藏 川 宁 琼</td><td>31</td></tr>
+            <tr><td>字母</td><td>A-Z</td><td>26</td></tr>
+            <tr><td>数字</td><td>0-9</td><td>10</td></tr>
+          </table>
+        </div>
+        <div class="info-card">
+          <h3>特殊标记</h3>
+          <table class="char-table" style="margin-top:4px;">
+            <tr><th>标记</th><th>含义</th><th>示例</th></tr>
+            <tr><td><span class="token-tag token-start">&lt;s&gt;</span></td><td>序列起始</td><td>Start of Sequence</td></tr>
+            <tr><td><span class="token-tag token-end">&lt;/s&gt;</span></td><td>序列终止</td><td>End of Sequence</td></tr>
+            <tr><td><span class="token-tag token-pad">&lt;pad&gt;</span></td><td>填充标记</td><td>Padding Token</td></tr>
+          </table>
+          <p style="margin-top:10px; font-size:0.78rem;">
+            <b>最大序列长度：</b>10 (8字符 + 2特殊标记)<br>
+            <b>词表大小：</b>31 + 26 + 10 + 3 = <b>70</b>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: Data Processing -->
+  <div class="slide" data-index="4">
+    <div class="slide-title anim-1">数据流处理</div>
+    <div class="slide-subtitle anim-1">Data Pipeline &amp; CCPD Format</div>
+    <div class="slide-content">
+      <p class="anim-2" style="margin-bottom:12px; font-size:0.9rem;">
+        CCPD2019 文件名编码了车牌的全部标注信息
+      </p>
+      <div class="ccpd-demo anim-3">
+        <div><span class="label-row">▼ CCPD 文件名示例</span></div>
+        025-95_113-<span class="part">154&amp;383_386&amp;473</span>-<span class="part2">386&amp;473_177&amp;454_154&amp;383_363&amp;402</span>-<span class="part3">0_0_22_27_27_33_16</span>-37-15.jpg
+        <div class="label-row" style="margin-top:8px;">
+          面积 | 倾斜度 | <span class="part">BBox: xmin&amp;ymin_xmax&amp;ymax</span> | <span class="part2">4角点: BR_BL_TL_TR</span> | <span class="part3">字符索引序列</span> | 亮度 | 模糊度
+        </div>
+      </div>
+
+      <div class="corner-compare anim-4">
+        <div class="corner-box">
+          <h3 style="color:var(--amber); font-size:0.8rem; margin-bottom:6px;">CCPD 原始格式</h3>
+          <p style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--text-secondary);">
+            [右下, 左下, 左上, 右上]<br>
+            BR → BL → TL → TR<br>
+            <span style="color:var(--text-muted)">索引: [0, 1, 2, 3]</span>
+          </p>
+        </div>
+        <div class="corner-box">
+          <h3 style="color:var(--blue-bright); font-size:0.8rem; margin-bottom:6px;">数据集/LPR 格式</h3>
+          <p style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--text-secondary);">
+            [左上, 右上, 右下, 左下]<br>
+            TL → TR → BR → BL<br>
+            <span style="color:var(--text-muted)">索引映射: [2, 3, 0, 1]</span>
+          </p>
+        </div>
+      </div>
+
+      <p class="anim-5" style="margin-top:14px; font-size:0.82rem; color: var(--text-muted); line-height:1.6;">
+        角点用于计算 <b>透视变换矩阵</b>，将倾斜/旋转的车牌矫正为正向的 48×160 图像，再送入识别模型。
+        透视矫正确保字符区域对齐，大幅提升识别准确率。
+      </p>
+    </div>
+  </div>
+
+  <!-- Slide 6: Web Application -->
+  <div class="slide" data-index="5">
+    <div class="slide-title anim-1">Web 应用</div>
+    <div class="slide-subtitle anim-1">Web Application</div>
+    <div class="slide-content">
+      <div class="card-grid anim-2">
+        <div class="info-card">
+          <span class="stage-badge stage-1">Backend</span>
+          <h3>Flask 后端服务</h3>
+          <div class="web-features" style="margin-top:10px;">
+            <div class="web-feature"><span class="dot">▸</span> Flask Web 框架</div>
+            <div class="web-feature"><span class="dot">▸</span> Flask-Login 用户认证</div>
+            <div class="web-feature"><span class="dot">▸</span> SQLite 数据库</div>
+            <div class="web-feature"><span class="dot">▸</span> RESTful API</div>
+          </div>
+        </div>
+        <div class="info-card">
+          <span class="stage-badge stage-2">Features</span>
+          <h3>功能特性</h3>
+          <div class="web-features" style="margin-top:10px;">
+            <div class="web-feature"><span class="dot">▸</span> 图片/视频上传</div>
+            <div class="web-feature"><span class="dot">▸</span> 实时检测与标注</div>
+            <div class="web-feature"><span class="dot">▸</span> 结果可视化展示</div>
+            <div class="web-feature"><span class="dot">▸</span> 历史记录管理</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-grid anim-3" style="margin-top:16px; grid-template-columns: 1fr 1fr 1fr;">
+        <div class="info-card" style="text-align:center;">
+          <div class="card-icon">📁</div>
+          <h3>uploads/</h3>
+          <p style="font-size:0.78rem;">用户上传原始文件</p>
+        </div>
+        <div class="info-card" style="text-align:center;">
+          <div class="card-icon">⚙️</div>
+          <h3>processed/</h3>
+          <p style="font-size:0.78rem;">处理后的结果文件<br>含标注与识别结果</p>
+        </div>
+        <div class="info-card" style="text-align:center;">
+          <div class="card-icon">🗄️</div>
+          <h3>SQLite</h3>
+          <p style="font-size:0.78rem;">用户数据与<br>处理记录持久化</p>
+        </div>
+      </div>
+
+      <p class="anim-4" style="margin-top:16px; font-size:0.82rem; color:var(--text-muted);">
+        <b>启动命令：</b><code style="background:var(--bg-deep); padding:4px 10px; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:0.75rem;">python run.py</code>
+        &nbsp;&nbsp;Flask 开发服务器，支持浏览器直接访问与交互操作。
+      </p>
+    </div>
+  </div>
+
+  <!-- Slide 7: Summary -->
+  <div class="slide" data-index="6">
+    <div class="slide-title anim-1">总结与展望</div>
+    <div class="slide-subtitle anim-1">Summary &amp; Future Work</div>
+    <div class="slide-content">
+      <div class="highlight-list anim-2">
+        <div class="highlight-item">
+          <div class="dot"></div>
+          <div>
+            <b style="color:var(--text-primary); font-size:0.85rem;">两阶段架构优势</b>
+            <p style="font-size:0.76rem; color:var(--text-secondary); margin-top:2px;">
+              检测与识别解耦，各阶段可独立优化和升级。透视矫正弥补了倾斜/旋转带来的识别困难。
+            </p>
+          </div>
+        </div>
+        <div class="highlight-item">
+          <div class="dot"></div>
+          <div>
+            <b style="color:var(--text-primary); font-size:0.85rem;">CNN + Transformer 融合</b>
+            <p style="font-size:0.76rem; color:var(--text-secondary); margin-top:2px;">
+              CNN 提取局部视觉特征，Transformer 建模序列全局依赖，结合了两者优势。
+            </p>
+          </div>
+        </div>
+        <div class="highlight-item">
+          <div class="dot"></div>
+          <div>
+            <b style="color:var(--text-primary); font-size:0.85rem;">端到端可部署</b>
+            <p style="font-size:0.76rem; color:var(--text-secondary); margin-top:2px;">
+              提供命令行推理 + Web 应用两种交互方式，满足开发调试与产品化需求。
+            </p>
+          </div>
+        </div>
+        <div class="highlight-item">
+          <div class="dot"></div>
+          <div>
+            <b style="color:var(--text-primary); font-size:0.85rem;">未来方向</b>
+            <p style="font-size:0.76rem; color:var(--text-secondary); margin-top:2px;">
+              支持更多车牌类型（新能源/双层）、端侧部署（ONNX/TensorRT）、视频实时流处理、多车牌同时检测。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-grid anim-3" style="margin-top:20px; grid-template-columns: 1fr 1fr;">
+        <div class="info-card" style="text-align:center;">
+          <h3 style="color:var(--blue-bright)">技术栈</h3>
+          <div style="margin-top:8px; display:flex; flex-wrap:wrap; justify-content:center; gap:6px;">
+            <span class="tag">PyTorch</span>
+            <span class="tag">YOLOv8</span>
+            <span class="tag">OpenCV</span>
+            <span class="tag">Flask</span>
+            <span class="tag">Transformer</span>
+            <span class="tag">CCPD2019</span>
+            <span class="tag">NumPy</span>
+            <span class="tag">SQLite</span>
+          </div>
+        </div>
+        <div class="info-card" style="text-align:center;">
+          <h3 style="color:var(--purple)">关键指标</h3>
+          <div style="margin-top:8px; font-size:0.82rem; color:var(--text-secondary); line-height:2;">
+            字符集大小: <b style="color:var(--text-primary)">70</b><br>
+            最大序列长度: <b style="color:var(--text-primary)">10</b><br>
+            输入分辨率: <b style="color:var(--text-primary)">48 × 160</b><br>
+            d_model: <b style="color:var(--text-primary)">512</b>
+          </div>
+        </div>
+      </div>
+
+      <p class="anim-4" style="text-align:center; margin-top:20px; font-size:0.9rem; color:var(--blue-bright); font-family:'JetBrains Mono',monospace;">
+        🚘 Detection + Recognition = End-to-End LPR
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav-bar">
+  <button class="nav-btn" id="prevBtn" title="上一页 (←)">◀</button>
+  <div class="progress-dots" id="progressDots"></div>
+  <button class="nav-btn" id="nextBtn" title="下一页 (→)">▶</button>
+  <span class="slide-counter" id="slideCounter">1 / 7</span>
+</div>
+
+<script>
+  (function() {
+    const slides = document.querySelectorAll('.slide');
+    const dotsContainer = document.getElementById('progressDots');
+    const counter = document.getElementById('slideCounter');
+    const total = slides.length;
+    let current = 0;
+
+    // Create dots
+    for (let i = 0; i < total; i++) {
+      const dot = document.createElement('button');
+      dot.className = 'progress-dot' + (i === 0 ? ' active' : '');
+      dot.addEventListener('click', () => goTo(i));
+      dotsContainer.appendChild(dot);
+    }
+
+    const dots = document.querySelectorAll('.progress-dot');
+
+    function goTo(index) {
+      if (index < 0 || index >= total || index === current) return;
+      slides[current].classList.remove('active');
+      dots[current].classList.remove('active');
+      current = index;
+      slides[current].classList.add('active');
+      dots[current].classList.add('active');
+      counter.textContent = `${current + 1} / ${total}`;
+    }
+
+    function next() { goTo(current + 1); }
+    function prev() { goTo(current - 1); }
+
+    document.getElementById('nextBtn').addEventListener('click', next);
+    document.getElementById('prevBtn').addEventListener('click', prev);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+        e.preventDefault();
+        next();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        prev();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goTo(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goTo(total - 1);
+      }
+    });
+
+    // Touch swipe support
+    let touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    });
+    document.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+        dx > 0 ? prev() : next();
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>

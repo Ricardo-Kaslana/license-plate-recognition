@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="text-center mb-5">识别结果</h1>
+
+    <div class="row g-4">
+        <!-- 原始文件卡片 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">原始文件</h5>
+                </div>
+                <div class="card-body text-center d-flex align-items-center justify-content-center">
+                    {% if record.file_type == 'image' %}
+                        <img src="{{ url_for('main.get_upload_file', filename=record.upload_path) }}" class="img-fluid rounded" alt="原始图片">
+                    {% elif record.file_type == 'video' %}
+                        <video controls class="img-fluid rounded">
+                            <source src="{{ url_for('main.get_upload_file', filename=record.upload_path) }}" type="video/mp4">
+                            您的浏览器不支持 video 标签。
+                        </video>
+                    {% endif %}
+                </div>
+                 <div class="card-footer text-muted small">
+                    文件名: {{ record.filename }}
+                </div>
+            </div>
+        </div>
+
+        <!-- 处理结果卡片 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100 border-primary border-2">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">识别结果</h5>
+                </div>
+                <div class="card-body text-center d-flex align-items-center justify-content-center">
+                    {% if record.file_type == 'image' %}
+                        <img src="{{ url_for('main.get_processed_file', filename=record.processed_path) }}" class="img-fluid rounded" alt="处理后的图片">
+                    {% elif record.file_type == 'video' %}
+                        <video controls class="img-fluid rounded">
+                            <source src="{{ url_for('main.get_processed_file', filename=record.processed_path) }}" type="video/mp4">
+                            您的浏览器不支持 video 标签。
+                        </video>
+                    {% endif %}
+                </div>
+                 <div class="card-footer text-muted small">
+                    处理时间: {{ record.upload_timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-5">
+        <a href="{{ url_for('main.index') }}" class="btn btn-secondary btn-lg">返回主页</a>
+    </div>
+</div>
+{% endblock %}

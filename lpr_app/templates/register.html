@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-lg border-0 rounded-lg mt-5">
+            <div class="card-header"><h3 class="text-center font-weight-light my-4">创建账户</h3></div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('auth.register') }}" novalidate>
+                    {{ form.hidden_tag() }} <!-- CSRF token -->
+
+                    <div class="form-floating mb-3">
+                        {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), id="floatingInput", placeholder="Username") }}
+                        {{ form.username.label(for="floatingInput") }}
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.username.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), id="floatingPassword", placeholder="Password") }}
+                        {{ form.password.label(for="floatingPassword") }}
+                        {% if form.password.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.password.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else ""), id="floatingConfirmPassword", placeholder="Confirm Password") }}
+                        {{ form.confirm_password.label(for="floatingConfirmPassword") }}
+                        {% if form.confirm_password.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.confirm_password.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid mt-4 mb-0">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center py-3">
+                <div class="small"><a href="{{ url_for('auth.login') }}">已经有账户了？去登录</a></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
